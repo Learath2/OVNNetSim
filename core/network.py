@@ -389,6 +389,7 @@ class Network:
             edgecolors=[TRANSCEIVER_COLORS[n.transceiver()] for n in self._nodes.values()],
             alpha=1
             )
+        node_collection.set_picker(True)
         node_collection.set_transform(mtrans.IdentityTransform())
         node_collection.set_zorder(9)
         axes.add_collection(node_collection)
@@ -432,6 +433,9 @@ class Network:
 
         axes.set_aspect('equal')
         axes.autoscale_view()
+
+    def get_node_transceiver(self, node: str) -> Transceiver:
+        return self._nodes[node].transceiver()
 
     def set_transceivers(self, transceiver: Transceiver, nodes: list[str] | None = None):
         if not nodes:

@@ -9,7 +9,7 @@ from core.parameters import INITIAL_SIGNAL_POWER
 import numpy as np
 
 import matplotlib.pyplot as plt
-from matplotlib.backend_bases import KeyEvent
+from matplotlib.backend_bases import KeyEvent, PickEvent, MouseEvent
 from matplotlib.figure import Figure
 from matplotlib.transforms import ScaledTranslation
 
@@ -178,6 +178,19 @@ def render_current_view():
 
     fig.canvas.draw()
 
+def on_pick(event: PickEvent):
+    if not g_network:
+        return
+
+    if g_current_view == Views.NETWORK:
+        if event.mouseevent.dblclick:
+            node = list(g_network.nodes())[event.ind[0]]
+            transceiver = g_network.get_node_transceiver(node)
+            it = itertools.dropwhile(lambda x: x != transceiver, itertools.cycle(Transceiver))
+            next(it)
+
+            g_network.set_transceivers(next(it), [node])
+            render_current_view()
 
 def main():
     file = Path(input("Path to network spec: "))
@@ -193,6 +206,7 @@ def main():
 
     fig = plt.figure(0)
     fig.canvas.mpl_connect('key_press_event', on_key_press)
+    fig.canvas.mpl_connect('pick_event', on_pick)
 
     render_current_view()
     plt.show()

@@ -313,6 +313,10 @@ class Network:
     def stream(self, conns: list[Connection], optimize_for: Literal['snr', 'latency'] = 'latency', occupy_paths: bool = False) -> list[Connection]:
         assert optimize_for in ['latency', 'snr'], "Unknown optimization target"
 
+        # Clear all lines before streaming
+        for l in self._lines.values():
+            l.unoccupy()
+
         conns_new = deepcopy(conns)
 
         wp = self.weighted_paths(INITIAL_SIGNAL_POWER)

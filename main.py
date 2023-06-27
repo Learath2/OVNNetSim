@@ -28,6 +28,7 @@ VIEW_NAMES = {Views.NETWORK: "Network Topology", Views.CONN_STATS: "Connection S
 g_current_view: Views = Views.NETWORK
 g_current_view_bindhandler: Callable[[KeyEvent], None] | None = None
 g_current_opt_target = 'latency'
+g_current_network_statefulness = False
 g_conns = None
 
 
@@ -65,7 +66,7 @@ def render_network_view(fig: Figure):
 
 
 def conn_stats_bindhandler(event: KeyEvent):
-    global g_conns, g_network, g_current_opt_target
+    global g_conns, g_network, g_current_opt_target, g_current_network_statefulness
     if g_network is None:
         return
 
@@ -78,6 +79,9 @@ def conn_stats_bindhandler(event: KeyEvent):
         elif g_current_opt_target == 'snr':
             g_current_opt_target = 'latency'
         render_current_view()
+    elif event.key == "ctrl+k":
+        g_current_network_statefulness = not g_current_network_statefulness
+        render_current_view()
 
 
 def render_conn_stats_view(fig: Figure):
@@ -87,15 +91,17 @@ def render_conn_stats_view(fig: Figure):
 
     g_current_view_bindhandler = conn_stats_bindhandler
 
-    conns_streamed = g_network.stream(g_conns)
+    conns_streamed = g_network.stream(g_conns, g_current_opt_target, g_current_network_statefulness)
     ax = fig.subplot_mosaic("ABC")
 
     snrs = [c.snr() for c in conns_streamed]
     ax['A'].hist(snrs, edgecolor='white')
     ax['A'].set_xlabel("SNR (dB)")
 
-    lats = np.array([c.latency() for c in conns_streamed])
-    ax['B'].hist(lats * 1e3, edgecolor='white')
+    HIST_LAT_MAX=10
+    bins = np.arange(0, HIST_LAT_MAX, 0.5)
+    lats = np.clip(np.array([c.latency() for c in conns_streamed]) * 1e3, bins[0], bins[-1])
+    ax['B'].hist(lats, bins=bins, edgecolor='white')
     ax['B'].set_xlabel("Latency (ms)")
 
     bitrates = [c.bitrate() for c in conns_streamed]
@@ -119,13 +125,14 @@ def render_misc_view(fig: Figure):
         ax.set_xlabel('GSNR (dB)')
         ax.set_ylabel('Bit Rate (Gbps)')
         ax.set_yscale('log')
+        ax.legend()
 
 
 def get_current_view_state():
-    global g_current_view, g_current_opt_target
+    global g_current_view, g_current_opt_target, g_current_network_statefulness
     match g_current_view:
         case Views.CONN_STATS:
-            return f"        Optimization target: '{g_current_opt_target}'    Stateful?: 'No'"
+            return f"        Optimization target: '{g_current_opt_target}'    Stateful?: '{g_current_network_statefulness}'"
         case _:
             return ""
 

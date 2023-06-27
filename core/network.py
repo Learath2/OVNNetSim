@@ -18,10 +18,10 @@ import matplotlib.patches as mpatches
 import matplotlib.text as mtext
 
 from scipy.special import erfcinv
-from scipy.constants import pi
+from scipy.constants import pi, h
 
 from core.utility import Point2D, db2lin, euc_dist, lin2db
-from core.parameters import C_IN_FIBER, BER_THRESHOLD, DEFAULT_FIBER_LOSS_COEFF, RS, BN, INITIAL_SIGNAL_POWER
+from core.parameters import AMPLIFIER_GAIN, C_IN_FIBER, BER_THRESHOLD, FIBER_LOSS_COEFF, RS, BN, INITIAL_SIGNAL_POWER, CBAND_CENTER, AMPLIFIER_NOISE
 
 class Transceiver(StrEnum):
     FIXED_RATE = 'fixed-rate'
@@ -105,6 +105,9 @@ class Node:
     def get_edges(self) -> dict[str, 'Line']:
         return self._edges
 
+    def set_transceiver(self, transceiver: Transceiver):
+        self._transceiver = transceiver
+
     def transceiver(self) -> Transceiver:
         return self._transceiver
 
@@ -140,12 +143,19 @@ class Line:
     def latency(self) -> float:
         return self._length / C_IN_FIBER
 
+    def ase_generation(self) -> float:
+        return self._n_amplifiers * h * CBAND_CENTER * BN * db2lin(AMPLIFIER_NOISE) * (db2lin(AMPLIFIER_GAIN) - 1)
+
+    def nli_generation(self, signal: Signal) -> float:
+        n_nli = (16/(27 * pi)) * np.log((pi ** 2) * 0.5 * np.abs(self._beta_2) * (signal.symbol_rate() ** 2) * (1 / db2lin(FIBER_LOSS_COEFF))) * ((self._gamma ** 2) / (4 * db2lin(FIBER_LOSS_COEFF) * self._beta_2)) * (1 / signal.symbol_rate() ** 3)
+        return (signal.signal_power() ** 3) * n_nli * (self._n_amplifiers - 1) * BN
+
     # Line noise (W)
     def noise(self, signal: Signal) -> float:
         if self._n_amplifiers == 0:
             return 1e-9 * signal.signal_power() * self._length
-
-        raise NotImplementedError()
+        else:
+            return self.ase_generation() + self.nli_generation()
 
     def get_end(self) -> Node:
         return self._end
@@ -200,6 +210,9 @@ class Connection:
 
     def set_path(self, path: list[Node]):
         self._path = deque(path)
+
+    def failed(self) -> bool:
+        return self._failed
 
     def set_failed(self, failed: bool):
         self._failed = failed
@@ -416,3 +429,12 @@ class Network:
 
         axes.set_aspect('equal')
         axes.autoscale_view()
+
+    def set_transceivers(self, transceiver: Transceiver, nodes: list[str] | None = None):
+        if not nodes:
+            nodes = list(self._nodes.values())
+        else:
+            nodes = [self._nodes[n] for n in nodes]
+
+        for n in nodes:
+            n.set_transceiver(transceiver)

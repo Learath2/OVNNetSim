@@ -30,7 +30,8 @@ g_current_view_bindhandler: Callable[[KeyEvent], None] | None = None
 g_current_opt_target = 'latency'
 g_current_network_statefulness = False
 g_conns = None
-
+g_current_network_transceivers = Transceiver.FIXED_RATE
+g_hide_failed = False
 
 def on_key_press(event: KeyEvent):
     global g_current_view
@@ -66,26 +67,43 @@ def render_network_view(fig: Figure):
 
 
 def conn_stats_bindhandler(event: KeyEvent):
-    global g_conns, g_network, g_current_opt_target, g_current_network_statefulness
+    global g_conns, g_network, g_current_opt_target, g_current_network_statefulness, g_current_network_transceivers
     if g_network is None:
         return
 
+    state_changed = False
     if event.key == "ctrl+r":
         g_conns = generate_random_conns(g_network, 100)
-        render_current_view()
+        state_changed = True
     elif event.key == "ctrl+t":
         if g_current_opt_target == 'latency':
             g_current_opt_target = 'snr'
         elif g_current_opt_target == 'snr':
             g_current_opt_target = 'latency'
-        render_current_view()
+        state_changed = True
     elif event.key == "ctrl+k":
         g_current_network_statefulness = not g_current_network_statefulness
+        state_changed = True
+    elif event.key == "ctrl+1":
+        g_current_network_transceivers = Transceiver.FIXED_RATE
+        state_changed = True
+    elif event.key == "ctrl+2":
+        g_current_network_transceivers = Transceiver.FLEX_RATE
+        state_changed = True
+    elif event.key == "ctrl+3":
+        g_current_network_transceivers = Transceiver.SHANNON
+        state_changed = True
+    elif event.key == "ctrl+y":
+        g_hide_failed = not g_hide_failed
+        state_changed = True
+
+    if state_changed:
+        g_network.set_transceivers(g_current_network_transceivers)
         render_current_view()
 
 
 def render_conn_stats_view(fig: Figure):
-    global g_current_view_bindhandler
+    global g_current_view_bindhandler, g_hide_failed
     if g_network is None:
         return
 
@@ -93,6 +111,9 @@ def render_conn_stats_view(fig: Figure):
 
     conns_streamed = g_network.stream(g_conns, g_current_opt_target, g_current_network_statefulness)
     ax = fig.subplot_mosaic("ABC")
+
+    if g_hide_failed:
+        conns_streamed = [c for c in conns_streamed if not c.failed()]
 
     snrs = [c.snr() for c in conns_streamed]
     ax['A'].hist(snrs, edgecolor='white')
@@ -107,6 +128,7 @@ def render_conn_stats_view(fig: Figure):
     bitrates = [c.bitrate() for c in conns_streamed]
     ax['C'].hist(bitrates, edgecolor='white')
     ax['C'].set_xlabel("Bitrate Gbps")
+    ax['C'].axhline(np.mean(bitrates), linestyle="--")
 
 
 def render_misc_view(fig: Figure):
@@ -129,10 +151,10 @@ def render_misc_view(fig: Figure):
 
 
 def get_current_view_state():
-    global g_current_view, g_current_opt_target, g_current_network_statefulness
+    global g_current_view, g_current_opt_target, g_current_network_statefulness, g_current_network_transceivers, g_hide_failed
     match g_current_view:
         case Views.CONN_STATS:
-            return f"        Optimization target: '{g_current_opt_target}'    Stateful?: '{g_current_network_statefulness}'"
+            return f"        Optimization target: {g_current_opt_target}    Stateful?: {g_current_network_statefulness}    Transceivers: {g_current_network_transceivers}    Hide Failed: {g_hide_failed}"
         case _:
             return ""
 

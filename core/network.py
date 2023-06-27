@@ -386,7 +386,7 @@ class Network:
             offsets=[n._position for n in self._nodes.values()],
             offset_transform=axes.transData,
             facecolors='white',
-            edgecolors='dodgerblue',
+            edgecolors=[TRANSCEIVER_COLORS[n.transceiver()] for n in self._nodes.values()],
             alpha=1
             )
         node_collection.set_transform(mtrans.IdentityTransform())
@@ -396,7 +396,6 @@ class Network:
         for nlabel, n in self._nodes.items():
             axes.text(*n.get_position(), nlabel, zorder=10, ha='center', va='center', clip_on=True)
 
-        # TODO: do this properly, lines are supposed to be colored the color of the starting ends transceiver
         for n1, n2 in itertools.combinations(self._nodes.values(), r=2):
             n1_lines = [l for l in n1.get_edges().values() if l.get_end() == n2]
             n2_lines = [l for l in n2.get_edges().values() if l.get_end() == n1]
@@ -422,7 +421,6 @@ class Network:
 
             for i, l in enumerate(lines):
                 k = i - lcount//2
-                print(i, k)
                 line_trans += dpi_scale_3p
                 if k == 0 and lcount % 2 == 0:
                     line_trans += dpi_scale_3p

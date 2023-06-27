@@ -67,7 +67,7 @@ def render_network_view(fig: Figure):
 
 
 def conn_stats_bindhandler(event: KeyEvent):
-    global g_conns, g_network, g_current_opt_target, g_current_network_statefulness, g_current_network_transceivers
+    global g_conns, g_network, g_current_opt_target, g_current_network_statefulness, g_current_network_transceivers, g_hide_failed
     if g_network is None:
         return
 
@@ -128,7 +128,7 @@ def render_conn_stats_view(fig: Figure):
     bitrates = [c.bitrate() for c in conns_streamed]
     ax['C'].hist(bitrates, edgecolor='white')
     ax['C'].set_xlabel("Bitrate Gbps")
-    ax['C'].axhline(np.mean(bitrates), linestyle="--")
+    ax['C'].axvline(np.mean(bitrates), linestyle="--")
 
 
 def render_misc_view(fig: Figure):

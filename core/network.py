@@ -34,18 +34,18 @@ def calculate_bit_rate(gsnr: float, strategy: Transceiver):
     match strategy:
         case Transceiver.FIXED_RATE:
             if gsnr >= 2 * (erfcinv(2 * BER_THRESHOLD) ** 2) * (RS / BN):
-                return 100
+                return 100 #PM-QPSK
             else:
                 return 0
         case Transceiver.FLEX_RATE:
             if gsnr < 2 * (erfcinv(2 * BER_THRESHOLD) ** 2) * (RS / BN):
                 return 0
             elif gsnr < (14/3) * (erfcinv((3/2) * BER_THRESHOLD) ** 2) * (RS / BN):
-                return 100
+                return 100 #PM-QPSK
             elif gsnr < 10 * (erfcinv((8/3) * BER_THRESHOLD) ** 2) * (RS / BN):
-                return 200
+                return 200 #PM-8QAM
             else:
-                return 400
+                return 400 #PM-16QAM
         case Transceiver.SHANNON:
             return 2 * RS * np.log2(1 + gsnr * (RS / BN)) * 1e-9
         case _:
@@ -398,7 +398,10 @@ class Network:
 
         # TODO: do this properly, lines are supposed to be colored the color of the starting ends transceiver
         for n1, n2 in itertools.combinations(self._nodes.values(), r=2):
-            lcount = (n2.get_label() in n1.get_edges()) + (n1.get_label() in n2.get_edges())
+            n1_lines = [l for l in n1.get_edges().values() if l.get_end() == n2]
+            n2_lines = [l for l in n2.get_edges().values() if l.get_end() == n1]
+            lines = n1_lines + n2_lines
+            lcount = len(lines)
             s_p, e_p = (np.array(n1.get_position()), np.array(n2.get_position()))
 
             # center point
@@ -417,11 +420,13 @@ class Network:
             for i in range(lcount//2 + 1):
                 line_trans -= dpi_scale_3p
 
-            for i in range(-lcount//2, lcount//2 + 1):
+            for i, l in enumerate(lines):
+                k = i - lcount//2
+                print(i, k)
                 line_trans += dpi_scale_3p
-                if i == 0 and lcount % 2 == 0:
-                    continue
-                axes.plot([s_p[0], e_p[0]], [s_p[1], e_p[1]], transform=line_trans, linewidth=1.5, label=f"{n1.get_label()}{n2.get_label()}", color=TRANSCEIVER_COLORS[n1.transceiver()])
+                if k == 0 and lcount % 2 == 0:
+                    line_trans += dpi_scale_3p
+                axes.plot([s_p[0], e_p[0]], [s_p[1], e_p[1]], transform=line_trans, linewidth=1.5, label=f"{l.get_label()}", color=TRANSCEIVER_COLORS[l.get_start().transceiver()])
                 #axes.text(*c_m, f"{n1.get_label()}{n2.get_label()}", transform=line_trans, fontsize=6, va='center', ha='center', rotation=360 * np.arctan(r_or[1] / r_or[0]) / (2*pi), rotation_mode='anchor')
 
         axes.set_xticks([])
